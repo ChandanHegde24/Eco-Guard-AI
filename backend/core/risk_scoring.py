@@ -47,12 +47,3 @@ def process_alerts(risk_report: dict, location_data: dict):
         return True
         
     return False
-
-def assess_climate_risk(change_percentage: float) -> dict:
-    """Classifies risk based on environmental change percentage."""
-    if change_percentage < 5.0:
-        return {"level": "Green", "action": "Monitor", "trigger": False} # [cite: 50, 51, 52]
-    elif 5.0 <= change_percentage <= 15.0:
-        return {"level": "Yellow", "action": "Warning", "trigger": False} # [cite: 53, 54, 55]
-    else:
-        return {"level": "Red", "action": "Immediate Alert", "trigger": True} # [cite: 56, 57, 58]
