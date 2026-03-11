@@ -61,8 +61,35 @@ with col_img2:
     st.image("https://via.placeholder.com/600x400.png?text=Satellite+Image+T2", caption="Time T2")
 
 # --- Action Button ---
+BACKEND_URL = "http://localhost:8000/api/v1/analyze-region"
+
 if st.button("Run AI Change Detection Analysis"):
     with st.spinner("Analyzing multi-temporal satellite data..."):
-        # Here you would use requests.post() to send data to your FastAPI endpoint
-        # e.g., response = requests.post("http://localhost:8000/api/v1/analyze-region", json={...})
-        st.success("Analysis Complete! Risk scoring updated.")
+        payload = {
+            "latitude": target_lat,
+            "longitude": target_lon,
+            "time_t1": str(date_t1),
+            "time_t2": str(date_t2),
+        }
+        try:
+            response = requests.post(BACKEND_URL, json=payload, timeout=60)
+            if response.status_code == 200:
+                result = response.json()
+                st.success("Analysis Complete! Risk scoring updated.")
+                st.subheader("Analysis Results")
+                risk = result.get("risk_assessment", {})
+                st.metric(
+                    label="Change Detected",
+                    value=f"{result.get('change_percentage', 0):.2f}%",
+                )
+                st.metric(
+                    label="Risk Level",
+                    value=f"{risk.get('indicator', '')} {risk.get('risk_level', 'N/A')}",
+                )
+                st.info(f"Recommended Action: **{risk.get('action', 'N/A')}**")
+            else:
+                st.error(f"Backend returned error {response.status_code}: {response.text}")
+        except requests.exceptions.ConnectionError:
+            st.error("Could not connect to the backend. Make sure the FastAPI server is running on http://localhost:8000")
+        except Exception as e:
+            st.error(f"An error occurred: {e}")

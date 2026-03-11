@@ -1,10 +1,17 @@
 import ee
+from core.config import settings
 
-# Ensure Earth Engine is initialized when this module is imported
+# Track whether Earth Engine was initialized successfully
+ee_initialized = False
+
 try:
-    ee.Initialize()
+    ee.Initialize(project=settings.EE_PROJECT_ID)
+    ee_initialized = True
+    print("Earth Engine initialized successfully.")
 except Exception as e:
-    print(f"Error initializing Earth Engine: {e}. Please run ee.Authenticate() first.")
+    print(f"Warning: Earth Engine not initialized: {e}")
+    print("The server will start, but satellite data endpoints require authentication.")
+    print("Run 'earthengine authenticate' in your terminal to enable full functionality.")
 
 def mask_s2_clouds(image):
     """
@@ -26,6 +33,12 @@ def fetch_satellite_images(latitude: float, longitude: float, time_t1: str, time
     """
     Fetches cloud-masked Sentinel-2 imagery for two distinct time periods around a specific coordinate.
     """
+    if not ee_initialized:
+        raise RuntimeError(
+            "Google Earth Engine is not authenticated. "
+            "Please run 'earthengine authenticate' in your terminal first."
+        )
+
     # Define the Region of Interest (ROI)
     point = ee.Geometry.Point([longitude, latitude])
     roi = point.buffer(buffer_meters)
@@ -39,7 +52,7 @@ def fetch_satellite_images(latitude: float, longitude: float, time_t1: str, time
     # We typically need a date range for each "time" to get a clean cloud-free mosaic.
     t1_start = ee.Date(time_t1)
     t1_end = t1_start.advance(30, 'day')
-    
+
     t2_start = ee.Date(time_t2)
     t2_end = t2_start.advance(30, 'day')
 

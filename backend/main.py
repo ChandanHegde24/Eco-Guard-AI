@@ -1,10 +1,29 @@
+import uvicorn
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from data_layer.gee_client import fetch_satellite_images
+from data_layer.gee_client import fetch_satellite_images, ee_initialized
 from data_layer.ai_layer.vegetation_index import analyze_environmental_change
 from core.risk_scoring import assess_climate_risk, process_alerts
 
 app = FastAPI(title="Eco-Guard AI Backend")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+@app.get("/")
+async def root():
+    return {
+        "project": "Eco-Guard AI",
+        "status": "running",
+        "earth_engine": "connected" if ee_initialized else "not authenticated",
+        "docs": "/docs",
+    }
 
 # Define the expected request payload
 class RegionRequest(BaseModel):
@@ -43,3 +62,6 @@ async def analyze_region(request: RegionRequest):
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+if __name__ == "__main__":
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

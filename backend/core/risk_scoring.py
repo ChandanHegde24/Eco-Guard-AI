@@ -1,3 +1,10 @@
+import sys
+import io
+
+# Fix Windows console encoding for emoji/unicode characters
+if sys.stdout.encoding != 'utf-8':
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+
 def assess_climate_risk(change_percentage: float) -> dict:
     """
     Evaluates the percentage of environmental change and assigns a risk level and action 

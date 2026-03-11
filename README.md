@@ -36,11 +36,20 @@ Eco-Guard-AI is an advanced environmental monitoring and protection platform tha
 
 ```
 Eco-Guard-AI/
-├── frontend/           # React/Vue-based user interface
-├── backend/            # Python-based API & processing engine
-├── models/             # AI/ML models for prediction
-├── data/               # Sample datasets & configurations
-└── README.md           # This file
+├── frontend/
+│   └── dashboard.py       # Streamlit-based dashboard UI
+├── backend/
+│   ├── main.py            # FastAPI application entry point
+│   ├── core/
+│   │   ├── config.py      # Project settings & Earth Engine config
+│   │   └── risk_scoring.py# Climate risk assessment & alerts
+│   └── data_layer/
+│       ├── gee_client.py  # Google Earth Engine satellite data fetcher
+│       └── ai_layer/
+│           ├── vegetation_index.py  # NDVI/NDWI change detection
+│           └── siamese_cnn.py       # Siamese CNN model (placeholder)
+├── requirements.txt       # Python dependencies
+└── README.md              # This file
 ```
 
 ---
@@ -49,7 +58,7 @@ Eco-Guard-AI/
 
 ### Prerequisites
 - Python 3.8 or higher
-- Node.js & npm (for frontend)
+- Google Earth Engine account (for satellite data access)
 - Git
 
 ### Installation
@@ -60,23 +69,38 @@ Eco-Guard-AI/
    cd Eco-Guard-AI
    ```
 
-2. **Backend Setup**
+2. **Install Dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. **Authenticate Google Earth Engine**
+   ```bash
+   earthengine authenticate
+   ```
+
+4. **Set your Earth Engine Project ID**
+   Set the environment variable or edit `backend/core/config.py`:
+   ```bash
+   export EE_PROJECT_ID="your-google-cloud-project-id"
+   ```
+
+5. **Start the Backend (FastAPI)**
    ```bash
    cd backend
-   pip install -r requirements.txt
-   python app.py
+   python main.py
    ```
 
-3. **Frontend Setup**
+6. **Start the Frontend (Streamlit Dashboard)**
+   In a separate terminal:
    ```bash
-   cd frontend
-   npm install
-   npm start
+   streamlit run frontend/dashboard.py
    ```
 
-4. **Access the Application**
+7. **Access the Application**
    ```
-   Open http://localhost:3000 in your browser
+   Backend API:  http://localhost:8000
+   Dashboard:    http://localhost:8501
    ```
 
 ---
@@ -99,12 +123,11 @@ Sensor Data → Data Pipeline → AI Models → Analysis → Alerts & Dashboard
 
 | Component | Technology |
 |-----------|-----------|
-| **Backend** | Python, Flask/FastAPI |
-| **Frontend** | React/Vue.js |
-| **ML/AI** | TensorFlow, Scikit-learn, PyTorch |
-| **Database** | PostgreSQL/MongoDB |
-| **Deployment** | Docker, Kubernetes |
-| **APIs** | RESTful APIs, WebSockets |
+| **Backend** | Python, FastAPI, Uvicorn |
+| **Frontend** | Streamlit, Folium |
+| **ML/AI** | PyTorch (Siamese CNN) |
+| **Satellite Data** | Google Earth Engine (Sentinel-2) |
+| **APIs** | RESTful APIs |
 
 ---
 
