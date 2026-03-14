@@ -3,6 +3,19 @@ import folium
 from streamlit_folium import st_folium
 import requests # To communicate with your FastAPI backend
 
+
+RECENT_ANALYSES_URL = "http://localhost:8000/api/v1/analysis/recent?limit=5"
+
+
+def fetch_recent_analyses():
+    try:
+        response = requests.get(RECENT_ANALYSES_URL, timeout=15)
+        if response.status_code == 200:
+            return response.json()
+    except Exception:
+        return []
+    return []
+
 # --- Page Configuration ---
 st.set_page_config(page_title="Eco-Guard AI Dashboard", layout="wide")
 st.title("🌍 Eco-Guard AI: Environmental Monitoring")
@@ -41,13 +54,35 @@ with col1:
 
 with col2:
     st.subheader("Region-wise Sustainability Score")
-    # Placeholder for the data fetched from the FastAPI backend
-    st.metric(label="Overall Health Index", value="82/100", delta="-3.4%")
+    recent_runs = fetch_recent_analyses()
+
+    if recent_runs:
+        latest = recent_runs[0]
+        health_index = max(0, 100 - latest.get("change_percentage", 0))
+        st.metric(
+            label="Overall Health Index",
+            value=f"{health_index:.1f}/100",
+            delta=f"-{latest.get('change_percentage', 0):.2f}%",
+        )
+    else:
+        st.metric(label="Overall Health Index", value="N/A", delta="No data")
     
     st.subheader("Alert Timeline")
-    st.error("🔴 2026-03-01: 18% deforestation detected in Zone A.")
-    st.warning("🟡 2026-02-15: 8% water body shrinkage in Zone B.")
-    st.success("🟢 2026-01-10: Stable vegetation in Zone C.")
+    if recent_runs:
+        for run in recent_runs:
+            ts = run.get("created_at", "")[:19].replace("T", " ")
+            risk = run.get("risk_level", "N/A")
+            pct = run.get("change_percentage", 0)
+            coords = f"({run.get('latitude'):.3f}, {run.get('longitude'):.3f})"
+            message = f"{ts}: {pct:.2f}% change at {coords}."
+            if risk == "Red":
+                st.error(f"🔴 {message}")
+            elif risk == "Yellow":
+                st.warning(f"🟡 {message}")
+            else:
+                st.success(f"🟢 {message}")
+    else:
+        st.info("No recent analysis runs available yet.")
 
 st.markdown("---")
 
