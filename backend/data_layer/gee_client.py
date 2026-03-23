@@ -65,3 +65,22 @@ def fetch_satellite_images(latitude: float, longitude: float, time_t1: str, time
         "t2": image_t2,
         "roi": roi
     }
+
+def get_image_thumbnail(image, roi):
+    """Generates a visual RGB thumbnail URL for the frontend rendering."""
+    if not ee_initialized:
+        return None
+    try:
+        # Visualize True Color surface reflectance (B4=Red, B3=Green, B2=Blue)
+        vis_params = {
+            'bands': ['B4', 'B3', 'B2'],
+            'min': 0,
+            'max': 0.3,
+            'region': roi,
+            'dimensions': 600,
+            'format': 'jpg'
+        }
+        return image.getThumbURL(vis_params)
+    except Exception as e:
+        print(f"Failed to generate thumbnail: {e}")
+        return None

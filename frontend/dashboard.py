@@ -90,12 +90,17 @@ st.markdown("---")
 
 # --- Before/After Comparison ---
 st.subheader("Multi-Temporal Analysis: Before/After Image Comparison")
-# Streamlit has a great ecosystem; you can use community components like 'streamlit-image-comparison'
+
+if "thumb_t1" not in st.session_state:
+    st.session_state.thumb_t1 = "https://via.placeholder.com/600x400.png?text=Satellite+Image+T1"
+if "thumb_t2" not in st.session_state:
+    st.session_state.thumb_t2 = "https://via.placeholder.com/600x400.png?text=Satellite+Image+T2"
+
 col_img1, col_img2 = st.columns(2)
 with col_img1:
-    st.image("https://via.placeholder.com/600x400.png?text=Satellite+Image+T1", caption="Time T1")
+    st.image(st.session_state.thumb_t1, caption="Time T1")
 with col_img2:
-    st.image("https://via.placeholder.com/600x400.png?text=Satellite+Image+T2", caption="Time T2")
+    st.image(st.session_state.thumb_t2, caption="Time T2")
 
 # --- Action Button ---
 
@@ -123,6 +128,13 @@ if st.button("Run AI Change Detection Analysis"):
                     value=f"{risk.get('indicator', '')} {risk.get('risk_level', 'N/A')}",
                 )
                 st.info(f"Recommended Action: **{risk.get('action', 'N/A')}**")
+                
+                # Render Real Thumbnails if available
+                thumbnails = result.get("thumbnails", {})
+                if thumbnails.get("t1") and thumbnails.get("t2"):
+                    st.session_state.thumb_t1 = thumbnails["t1"]
+                    st.session_state.thumb_t2 = thumbnails["t2"]
+                    st.rerun() # Refresh app to update images immediately
             else:
                 st.error(f"Backend returned error {response.status_code}: {response.text}")
         except requests.exceptions.ConnectionError:

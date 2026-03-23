@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  backend:
+    build: 
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite:///./eco_guard.db
+      - LOG_LEVEL=INFO
+      - EE_PROJECT_ID=eco-guard-ai-489900
+      - BACKEND_CORS_ORIGINS=["http://localhost:8501"]
+    volumes:
+      - ./backend:/app  # For local auto-reload development
+      - backend_db_data:/app  # Persistence for sqlite
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    ports:
+      - "8501:8501"
+    environment:
+      - API_BASE_URL=http://backend:8000
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+
+volumes:
+  backend_db_data:

@@ -26,6 +26,18 @@ def get_session():
     finally:
         session.close()
 
+# Dependency for FastAPI endpoints
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
+
 
 def init_db() -> None:
     # Importing here to ensure they are registered with SQLAlchemy's metadata before table creation
