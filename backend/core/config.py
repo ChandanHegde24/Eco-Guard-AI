@@ -9,7 +9,7 @@ class Settings:
     EE_PROJECT_ID: str = os.getenv("EE_PROJECT_ID", "eco-guard-ai-489900")
 
     # Persistence
-    DATABASE_URL: str = os.getenv("DATABASE_URL", "mongodb+srv://masterchandan24_db_user:UhWe12JyVfIilfdY@cluster0.gfxjnjc.mongodb.net/")
+    DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./eco_guard.db")
 
     # Logging
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")

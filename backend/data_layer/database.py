@@ -28,7 +28,6 @@ def get_session():
 
 
 def init_db() -> None:
-    from data_layer.models import AnalysisRun
-
-    _ = AnalysisRun
+    # Importing here to ensure they are registered with SQLAlchemy's metadata before table creation
+    import data_layer.models  # noqa
     Base.metadata.create_all(bind=engine)

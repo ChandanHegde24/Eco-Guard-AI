@@ -1,10 +1,12 @@
+import os
 import streamlit as st
 import folium
 from streamlit_folium import st_folium
 import requests # To communicate with your FastAPI backend
 
-
-RECENT_ANALYSES_URL = "http://localhost:8000/api/v1/analysis/recent?limit=5"
+API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
+RECENT_ANALYSES_URL = f"{API_BASE_URL}/api/v1/analysis/recent?limit=5"
+BACKEND_URL = f"{API_BASE_URL}/api/v1/analyze-region"
 
 
 def fetch_recent_analyses():
@@ -96,7 +98,6 @@ with col_img2:
     st.image("https://via.placeholder.com/600x400.png?text=Satellite+Image+T2", caption="Time T2")
 
 # --- Action Button ---
-BACKEND_URL = "http://localhost:8000/api/v1/analyze-region"
 
 if st.button("Run AI Change Detection Analysis"):
     with st.spinner("Analyzing multi-temporal satellite data..."):
