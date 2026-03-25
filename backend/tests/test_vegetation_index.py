@@ -81,7 +81,7 @@ def test_environmental_change_computes_percentage(monkeypatch) -> None:
 
     change = analyze_environmental_change(t1, t2, index_type="NDVI")
 
-    assert change == 12.0
+    assert change == pytest.approx(12.0)
 
 
 def test_environmental_change_rejects_invalid_index_type() -> None:

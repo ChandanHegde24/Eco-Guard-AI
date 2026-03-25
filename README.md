@@ -74,34 +74,61 @@ Eco-Guard-AI/
    pip install -r requirements.txt
    ```
 
-3. **Authenticate Google Earth Engine**
+3. **Create Environment File**
+   ```bash
+   cp .env.example .env
+   ```
+
+4. **Authenticate Google Earth Engine**
    ```bash
    earthengine authenticate
    ```
 
-4. **Set your Earth Engine Project ID**
+5. **Set your Earth Engine Project ID**
    Set the environment variable or edit `backend/core/config.py`:
    ```bash
    export EE_PROJECT_ID="your-google-cloud-project-id"
    ```
 
-5. **Start the Backend (FastAPI)**
+6. **Start the Backend (FastAPI)**
    ```bash
    cd backend
    python main.py
    ```
 
-6. **Start the Frontend (Streamlit Dashboard)**
+7. **Start the Frontend (Streamlit Dashboard)**
    In a separate terminal:
    ```bash
    streamlit run frontend/dashboard.py
    ```
 
-7. **Access the Application**
+8. **Access the Application**
    ```
    Backend API:  http://localhost:8000
    Dashboard:    http://localhost:8501
    ```
+
+9. **Run Tests**
+   ```bash
+   pytest backend/tests -q
+   ```
+
+---
+
+## ✅ Operational Endpoints
+
+- `GET /health` - liveness endpoint for service availability
+- `GET /ready` - readiness endpoint with database and Earth Engine checks
+- `GET /api/v1/analysis/recent` - recent analysis history for the dashboard
+
+---
+
+## 🔁 Continuous Integration
+
+The project now includes a GitHub Actions workflow at `.github/workflows/ci.yml` that runs on push and pull request:
+
+- Install dependencies
+- Run backend tests with `pytest`
 
 ---
 

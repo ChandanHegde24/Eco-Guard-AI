@@ -1,6 +1,7 @@
 import logging
 import asyncio
 import time
+from contextlib import asynccontextmanager
 from datetime import date
 
 import uvicorn
@@ -23,7 +24,15 @@ from data_layer.repository import get_recent_analysis_runs, save_analysis_run
 configure_logging(settings.LOG_LEVEL)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Eco-Guard AI Backend")
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    init_db()
+    logger.info("Backend started and database initialized")
+    yield
+
+
+app = FastAPI(title="Eco-Guard AI Backend", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -100,11 +109,6 @@ class RegionRequest(BaseModel):
     longitude: float = Field(..., ge=-180, le=180, description="Longitude between -180 and 180")
     time_t1: date = Field(..., description="Baseline analysis date") 
     time_t2: date = Field(..., description="Current analysis date")
-
-@app.on_event("startup")
-async def startup_event() -> None:
-    init_db()
-    logger.info("Backend started and database initialized")
 
 @app.post("/api/v1/analyze-region")
 async def analyze_region(request: RegionRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
