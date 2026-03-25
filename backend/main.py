@@ -1,11 +1,14 @@
 import logging
 import asyncio
+import time
 from datetime import date
 
 import uvicorn
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from core.alerting import dispatch_alert_if_needed
@@ -30,6 +33,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.middleware("http")
+async def request_timing_middleware(request: Request, call_next):
+    start = time.perf_counter()
+    response = await call_next(request)
+    duration_ms = (time.perf_counter() - start) * 1000
+    logger.info(
+        "request.complete",
+        extra={
+            "method": request.method,
+            "path": request.url.path,
+            "status_code": response.status_code,
+            "duration_ms": round(duration_ms, 2),
+        },
+    )
+    return response
+
 @app.get("/")
 async def root():
     return {
@@ -38,6 +58,41 @@ async def root():
         "earth_engine": "connected" if ee_initialized else "not authenticated",
         "docs": "/docs",
     }
+
+
+@app.get("/health")
+async def health() -> dict:
+    return {
+        "status": "healthy",
+        "service": settings.PROJECT_NAME,
+    }
+
+
+@app.get("/ready")
+async def readiness(db: Session = Depends(get_db)):
+    db_ready = True
+    db_error = None
+
+    try:
+        db.execute(text("SELECT 1"))
+    except Exception as exc:
+        db_ready = False
+        db_error = str(exc)
+
+    payload = {
+        "status": "ready" if db_ready else "not_ready",
+        "checks": {
+            "database": "ok" if db_ready else "failed",
+            "earth_engine": "ok" if ee_initialized else "not_authenticated",
+        },
+    }
+
+    if db_error:
+        payload["checks"]["database_error"] = db_error
+
+    if db_ready:
+        return payload
+    return JSONResponse(status_code=503, content=payload)
 
 # Security and validation through Pydantic constraints
 class RegionRequest(BaseModel):

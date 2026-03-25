@@ -1,5 +1,7 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing import Any
 
+from pydantic import field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Eco-Guard AI"
@@ -27,6 +29,24 @@ class Settings(BaseSettings):
     
     # CORS Security
     BACKEND_CORS_ORIGINS: list[str] = ["http://localhost:8501", "http://localhost:8000"]
+
+    @field_validator("LOG_LEVEL")
+    @classmethod
+    def validate_log_level(cls, value: str) -> str:
+        allowed = {"CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"}
+        level = value.upper().strip()
+        if level not in allowed:
+            raise ValueError(f"LOG_LEVEL must be one of {sorted(allowed)}")
+        return level
+
+    @field_validator("BACKEND_CORS_ORIGINS", mode="before")
+    @classmethod
+    def normalize_cors_origins(cls, value: Any) -> list[str] | Any:
+        if isinstance(value, str):
+            parts = [item.strip() for item in value.split(",") if item.strip()]
+            if parts:
+                return parts
+        return value
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
