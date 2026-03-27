@@ -128,6 +128,20 @@ if st.button("Run AI Change Detection Analysis"):
                     value=f"{risk.get('indicator', '')} {risk.get('risk_level', 'N/A')}",
                 )
                 st.info(f"Recommended Action: **{risk.get('action', 'N/A')}**")
+
+                index_changes = result.get("index_changes", {})
+                if index_changes:
+                    col_ndvi, col_ndwi = st.columns(2)
+                    with col_ndvi:
+                        st.metric(
+                            label="NDVI Change",
+                            value=f"{index_changes.get('ndvi_change_percentage', 0):.2f}%",
+                        )
+                    with col_ndwi:
+                        st.metric(
+                            label="NDWI Change",
+                            value=f"{index_changes.get('ndwi_change_percentage', 0):.2f}%",
+                        )
                 
                 # Render Real Thumbnails if available
                 thumbnails = result.get("thumbnails", {})

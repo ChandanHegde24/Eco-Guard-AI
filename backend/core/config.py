@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     # Logging
     LOG_LEVEL: str = "INFO"
 
+    # Performance
+    ANALYSIS_CACHE_TTL_SECONDS: int = 300
+
     # Alerting
     ALERT_EMAIL_TO: str = ""
     ALERT_WEBHOOK_URL: str = ""

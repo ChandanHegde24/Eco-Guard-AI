@@ -8,7 +8,7 @@ import uvicorn
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -18,11 +18,37 @@ from core.logging_config import configure_logging
 from data_layer.database import get_session, get_db, init_db
 from data_layer.gee_client import fetch_satellite_images, ee_initialized, get_image_thumbnail
 from data_layer.ai_layer.vegetation_index import analyze_environmental_change
-from core.risk_scoring import assess_climate_risk
+from core.risk_scoring import assess_composite_climate_risk
 from data_layer.repository import get_recent_analysis_runs, save_analysis_run
 
 configure_logging(settings.LOG_LEVEL)
 logger = logging.getLogger(__name__)
+
+
+# Simple in-memory TTL cache for expensive remote analysis calls.
+# Keyed by request coordinates and date range.
+analysis_cache: dict[tuple[float, float, str, str], tuple[float, dict]] = {}
+
+
+def _cache_key(lat: float, lon: float, time_t1: str, time_t2: str) -> tuple[float, float, str, str]:
+    return (round(lat, 5), round(lon, 5), time_t1, time_t2)
+
+
+def _get_cached_analysis(key: tuple[float, float, str, str]) -> dict | None:
+    cached = analysis_cache.get(key)
+    if not cached:
+        return None
+
+    cached_at, payload = cached
+    if (time.time() - cached_at) > settings.ANALYSIS_CACHE_TTL_SECONDS:
+        analysis_cache.pop(key, None)
+        return None
+
+    return payload
+
+
+def _set_cached_analysis(key: tuple[float, float, str, str], payload: dict) -> None:
+    analysis_cache[key] = (time.time(), payload)
 
 
 @asynccontextmanager
@@ -110,25 +136,41 @@ class RegionRequest(BaseModel):
     time_t1: date = Field(..., description="Baseline analysis date") 
     time_t2: date = Field(..., description="Current analysis date")
 
+    @model_validator(mode="after")
+    def validate_date_order(self):
+        if self.time_t2 < self.time_t1:
+            raise ValueError("time_t2 must be greater than or equal to time_t1")
+        return self
+
 @app.post("/api/v1/analyze-region")
 async def analyze_region(request: RegionRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     try:
         time_t1_str = request.time_t1.isoformat()
         time_t2_str = request.time_t2.isoformat()
+        cache_key = _cache_key(request.latitude, request.longitude, time_t1_str, time_t2_str)
+
+        cached_payload = _get_cached_analysis(cache_key)
+        if cached_payload:
+            return {
+                "status": "success",
+                "cached": True,
+                **cached_payload,
+            }
 
         # Execute blocking EE calls in a thread pool to avoid stalling the FastAPI event loop
         def run_gee_analysis():
             images = fetch_satellite_images(request.latitude, request.longitude, time_t1_str, time_t2_str)
             ndvi = analyze_environmental_change(images['t1'], images['t2'], index_type="NDVI")
+            ndwi = analyze_environmental_change(images['t1'], images['t2'], index_type="NDWI")
             
             thumb_t1 = get_image_thumbnail(images['t1'], images['roi'])
             thumb_t2 = get_image_thumbnail(images['t2'], images['roi'])
-            return ndvi, thumb_t1, thumb_t2
+            return ndvi, ndwi, thumb_t1, thumb_t2
 
-        ndvi_change, thumb_t1, thumb_t2 = await asyncio.to_thread(run_gee_analysis)
+        ndvi_change, ndwi_change, thumb_t1, thumb_t2 = await asyncio.to_thread(run_gee_analysis)
         
-        # Calculate Risk Score
-        risk_report = assess_climate_risk(ndvi_change)
+        # Calculate composite risk score using vegetation + water signals
+        risk_report = assess_composite_climate_risk(ndvi_change, ndwi_change)
         location_data = {"lat": request.latitude, "lon": request.longitude}
 
         # Persist run via dependency injected session
@@ -147,18 +189,45 @@ async def analyze_region(request: RegionRequest, background_tasks: BackgroundTas
         # Dispatch notifications asynchronously in background
         background_tasks.add_task(dispatch_alert_if_needed, risk_report, location_data)
         
-        return {
+        response_payload = {
             "status": "success",
             "analysis_id": run.id,
             "coordinates": location_data,
-            "change_percentage": ndvi_change,
+            "change_percentage": risk_report["composite_change_percentage"],
+            "index_changes": {
+                "ndvi_change_percentage": ndvi_change,
+                "ndwi_change_percentage": ndwi_change,
+            },
             "risk_assessment": risk_report,
             "thumbnails": {
                 "t1": thumb_t1,
                 "t2": thumb_t2
             },
             "alert_dispatched_in_background": risk_report["trigger_alert"],
+            "cached": False,
         }
+
+        # Cache everything except the status/cached wrapper metadata.
+        _set_cached_analysis(
+            cache_key,
+            {
+                "analysis_id": run.id,
+                "coordinates": location_data,
+                "change_percentage": risk_report["composite_change_percentage"],
+                "index_changes": {
+                    "ndvi_change_percentage": ndvi_change,
+                    "ndwi_change_percentage": ndwi_change,
+                },
+                "risk_assessment": risk_report,
+                "thumbnails": {
+                    "t1": thumb_t1,
+                    "t2": thumb_t2,
+                },
+                "alert_dispatched_in_background": risk_report["trigger_alert"],
+            },
+        )
+
+        return response_payload
 
     except Exception as e:
         logger.exception("Error while analyzing region")

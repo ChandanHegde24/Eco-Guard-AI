@@ -27,3 +27,17 @@ def test_recent_analyses_limit_is_bounded(client) -> None:
 
     assert response.status_code == 200
     assert isinstance(response.json(), list)
+
+
+def test_analyze_region_rejects_reverse_dates(client) -> None:
+    response = client.post(
+        "/api/v1/analyze-region",
+        json={
+            "latitude": 14.5,
+            "longitude": 75.5,
+            "time_t1": "2026-03-20",
+            "time_t2": "2026-03-10",
+        },
+    )
+
+    assert response.status_code == 422
