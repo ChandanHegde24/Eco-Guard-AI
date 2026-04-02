@@ -15,8 +15,13 @@ from sqlalchemy.orm import Session
 from core.alerting import dispatch_alert_if_needed
 from core.config import settings
 from core.logging_config import configure_logging
-from data_layer.database import get_session, get_db, init_db
-from data_layer.gee_client import fetch_satellite_images, ee_initialized, get_image_thumbnail
+from data_layer.database import get_db, init_db
+from data_layer.gee_client import (
+    EarthEngineUnavailableError,
+    fetch_satellite_images,
+    ee_initialized,
+    get_image_thumbnail,
+)
 from data_layer.ai_layer.vegetation_index import analyze_environmental_change
 from core.risk_scoring import assess_composite_climate_risk
 from data_layer.repository import get_recent_analysis_runs, save_analysis_run
@@ -34,6 +39,28 @@ def _cache_key(lat: float, lon: float, time_t1: str, time_t2: str) -> tuple[floa
     return (round(lat, 5), round(lon, 5), time_t1, time_t2)
 
 
+def _prune_expired_cache_entries(now: float | None = None) -> None:
+    current_time = now if now is not None else time.time()
+    expired_keys = [
+        key
+        for key, (cached_at, _) in analysis_cache.items()
+        if (current_time - cached_at) > settings.ANALYSIS_CACHE_TTL_SECONDS
+    ]
+    for key in expired_keys:
+        analysis_cache.pop(key, None)
+
+
+def _enforce_cache_size_limit() -> None:
+    max_items = settings.ANALYSIS_CACHE_MAX_ITEMS
+    if len(analysis_cache) <= max_items:
+        return
+
+    overflow = len(analysis_cache) - max_items
+    oldest_entries = sorted(analysis_cache.items(), key=lambda item: item[1][0])[:overflow]
+    for key, _ in oldest_entries:
+        analysis_cache.pop(key, None)
+
+
 def _get_cached_analysis(key: tuple[float, float, str, str]) -> dict | None:
     cached = analysis_cache.get(key)
     if not cached:
@@ -48,7 +75,9 @@ def _get_cached_analysis(key: tuple[float, float, str, str]) -> dict | None:
 
 
 def _set_cached_analysis(key: tuple[float, float, str, str], payload: dict) -> None:
+    _prune_expired_cache_entries()
     analysis_cache[key] = (time.time(), payload)
+    _enforce_cache_size_limit()
 
 
 @asynccontextmanager
@@ -180,7 +209,7 @@ async def analyze_region(request: RegionRequest, background_tasks: BackgroundTas
             longitude=request.longitude,
             time_t1=time_t1_str,
             time_t2=time_t2_str,
-            change_percentage=ndvi_change,
+            change_percentage=risk_report["composite_change_percentage"],
             risk_level=risk_report["risk_level"],
             recommended_action=risk_report["action"],
             alert_triggered=risk_report["trigger_alert"],
@@ -229,9 +258,14 @@ async def analyze_region(request: RegionRequest, background_tasks: BackgroundTas
 
         return response_payload
 
-    except Exception as e:
+    except EarthEngineUnavailableError:
+        raise HTTPException(
+            status_code=503,
+            detail="Satellite analysis is currently unavailable. Authenticate Google Earth Engine and retry.",
+        )
+    except Exception:
         logger.exception("Error while analyzing region")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Unexpected error while analyzing region")
 
 @app.get("/api/v1/analysis/recent")
 async def recent_analyses(limit: int = 20, db: Session = Depends(get_db)):

@@ -1,6 +1,10 @@
 import ee
 from core.config import settings
 
+
+class EarthEngineUnavailableError(RuntimeError):
+    """Raised when Earth Engine is not ready to serve satellite requests."""
+
 # Track whether Earth Engine was initialized successfully
 ee_initialized = False
 
@@ -34,7 +38,7 @@ def fetch_satellite_images(latitude: float, longitude: float, time_t1: str, time
     Fetches cloud-masked Sentinel-2 imagery for two distinct time periods around a specific coordinate.
     """
     if not ee_initialized:
-        raise RuntimeError(
+        raise EarthEngineUnavailableError(
             "Google Earth Engine is not authenticated. "
             "Please run 'earthengine authenticate' in your terminal first."
         )

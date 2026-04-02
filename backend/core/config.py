@@ -18,6 +18,7 @@ class Settings(BaseSettings):
 
     # Performance
     ANALYSIS_CACHE_TTL_SECONDS: int = 300
+    ANALYSIS_CACHE_MAX_ITEMS: int = 1000
 
     # Alerting
     ALERT_EMAIL_TO: str = ""
@@ -49,6 +50,13 @@ class Settings(BaseSettings):
             parts = [item.strip() for item in value.split(",") if item.strip()]
             if parts:
                 return parts
+        return value
+
+    @field_validator("ANALYSIS_CACHE_TTL_SECONDS", "ANALYSIS_CACHE_MAX_ITEMS")
+    @classmethod
+    def validate_positive_cache_settings(cls, value: int) -> int:
+        if value <= 0:
+            raise ValueError("cache settings must be greater than 0")
         return value
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")

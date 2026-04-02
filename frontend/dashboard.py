@@ -149,6 +149,17 @@ if st.button("Run AI Change Detection Analysis"):
                     st.session_state.thumb_t1 = thumbnails["t1"]
                     st.session_state.thumb_t2 = thumbnails["t2"]
                     st.rerun() # Refresh app to update images immediately
+            elif response.status_code == 503:
+                detail = "Satellite analysis is currently unavailable."
+                try:
+                    detail = response.json().get("detail", detail)
+                except ValueError:
+                    pass
+
+                st.warning(detail)
+                st.info(
+                    "Authenticate Earth Engine by running 'earthengine authenticate' on the backend host, then restart the backend service."
+                )
             else:
                 st.error(f"Backend returned error {response.status_code}: {response.text}")
         except requests.exceptions.ConnectionError:

@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   backend:
     build: 
@@ -8,13 +6,13 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=sqlite:///./eco_guard.db
+      - DATABASE_URL=sqlite:////data/eco_guard.db
       - LOG_LEVEL=INFO
       - EE_PROJECT_ID=eco-guard-ai-489900
       - BACKEND_CORS_ORIGINS=["http://localhost:8501"]
     volumes:
       - ./backend:/app  # For local auto-reload development
-      - backend_db_data:/app  # Persistence for sqlite
+      - backend_db_data:/data  # Persistence for sqlite
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)"]
